@@ -6,6 +6,7 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+const brain = require('./brain');
 const prisma = new PrismaClient();
 const app = express();
 const httpServer = createServer(app);
@@ -80,7 +81,36 @@ app.get('/api/friends', auth, async (req, res) => {
     }
   });
   
-  res.json(friends.map(f => f.friend));
+  // Merge with brain data (home locations)
+  const friendsWithBrain = friends.map(f => {
+    const home = brain.getFriendHome(f.friend.id);
+    return { ...f.friend, home };
+  });
+  
+  res.json(friendsWithBrain);
+});
+
+// Save friend's home location (to encrypted local brain)
+app.post('/api/friends/:id/home', auth, async (req, res) => {
+  const { lat, lng, address } = req.body;
+  const friendId = req.params.id;
+  
+  // Verify friendship
+  const friendship = await prisma.friend.findFirst({
+    where: { userId: req.user.id, friendId, status: 'ACCEPTED' }
+  });
+  
+  if (!friendship) {
+    return res.status(403).json({ error: 'Not friends' });
+  }
+  
+  const home = brain.setFriendHome(friendId, lat, lng, address);
+  res.json({ success: true, home });
+});
+
+// Get all friend homes from brain
+app.get('/api/brain/homes', auth, (req, res) => {
+  res.json(brain.getAllFriendHomes());
 });
 
 // Socket.IO for real-time
