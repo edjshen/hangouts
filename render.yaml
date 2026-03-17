@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: hangouts-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx prisma generate
+    startCommand: node src/server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hangouts-db
+          property: connectionString
+
+databases:
+  - name: hangouts-db
+    plan: free
+    ipAllowList: []
