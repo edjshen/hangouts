@@ -12,7 +12,7 @@ model User {
   email     String   @unique
   name      String
   avatar    String?
-  status    Status   @default(OFFLINE)
+  status    String   @default("OFFLINE")
   lat       Float?
   lng       Float?
   homeLat   Float?
@@ -29,7 +29,7 @@ model Friend {
   id        String   @id @default(cuid())
   userId    String
   friendId  String
-  status    FriendStatus @default(PENDING)
+  status    String   @default("PENDING")
   createdAt DateTime @default(now())
   
   user      User     @relation("UserFriends", fields: [userId], references: [id])
@@ -50,12 +50,3 @@ model Location {
   @@index([userId, timestamp])
 }
 
-enum Status {
-  ONLINE
-  OFFLINE
-}
-
-enum FriendStatus {
-  PENDING
-  ACCEPTED
-}
