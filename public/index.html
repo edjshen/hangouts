@@ -3,36 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hangouts</title>
+  <title>Hang</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    :root { --bg: #0a0a0a; --bg2: #111; --text: #fff; --muted: #888; --on: #22c55e; --off: #6b7280; }
+    :root { --bg: #0a0a0a; --bg2: #111; --text: #fff; --muted: #888; --accent: #fbbf24; --accent-dark: #d97706; }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
     header { background: var(--bg2); border-bottom: 1px solid #222; padding: 1rem; }
-    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--accent); }
     .tabs { display: flex; gap: 0.5rem; }
     .tabs button { flex: 1; padding: 0.75rem; background: transparent; border: 1px solid #333; color: var(--muted); border-radius: 8px; cursor: pointer; }
-    .tabs button.active { background: var(--on); border-color: var(--on); color: white; }
+    .tabs button.active { background: var(--accent); border-color: var(--accent); color: #000; }
     main { padding: 1rem; }
     .tab { display: none; }
     .tab.active { display: block; }
     .status-card { text-align: center; padding: 3rem 1rem; }
-    .status-btn { display: inline-flex; align-items: center; gap: 1rem; padding: 1.5rem 3rem; font-size: 1.25rem; font-weight: 600; border: none; border-radius: 100px; cursor: pointer; margin: 2rem 0; }
-    .status-btn.online { background: var(--on); color: white; }
-    .status-btn.offline { background: var(--bg2); color: var(--muted); border: 2px solid #333; }
-    .dot { width: 16px; height: 16px; border-radius: 50%; background: currentColor; }
+    .status-btn { width: 200px; height: 200px; border-radius: 50%; border: none; cursor: pointer; transition: all 0.3s; background: #222; }
+    .status-btn.online { background: var(--accent); box-shadow: 0 0 60px rgba(251, 191, 36, 0.4); }
+    .status-btn.offline { background: #333; }
+    .status-btn:active { transform: scale(0.95); }
     .friend { display: flex; align-items: center; gap: 1rem; background: var(--bg2); padding: 1rem; border-radius: 12px; margin-bottom: 0.75rem; }
     .avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 600; background: #333; }
-    .avatar.online { background: rgba(34,197,94,0.2); color: var(--on); }
+    .avatar.online { background: rgba(251, 191, 36, 0.2); color: var(--accent); }
     .name { font-weight: 600; }
     .status-text { font-size: 0.875rem; color: var(--muted); }
-    .status-text.online { color: var(--on); }
+    .status-text.online { color: var(--accent); }
     #map { width: 100%; height: 60vh; border-radius: 12px; }
+    .loc-permission { padding: 1rem; background: var(--bg2); border-radius: 8px; margin-bottom: 1rem; border: 1px solid var(--accent); }
   </style>
 </head>
 <body>
   <header>
-    <h1>Hangouts</h1>
+    <h1>Hang</h1>
     <div class="tabs">
       <button class="active" onclick="showTab('status')">Status</button>
       <button onclick="showTab('friends')">Friends</button>
@@ -43,11 +44,8 @@
     <div id="status" class="tab active">
       <div class="status-card">
         <h2 id="username">You</h2>
-        <button id="statusBtn" class="status-btn offline" onclick="toggleStatus()">
-          <span class="dot"></span>
-          <span id="statusText">Not Available</span>
-        </button>
-        <p style="color: var(--muted)">Toggle when you want to hang out with friends</p>
+        <button id="statusBtn" class="status-btn offline" onclick="toggleStatus()"></button>
+        <p id="statusLabel" style="color: var(--muted); margin-top: 1rem;">Tap to hang</p>
       </div>
     </div>
     <div id="friends" class="tab">
@@ -66,6 +64,20 @@
     localStorage.setItem('userId', userId);
     let status = 'OFFLINE';
     let socket;
+    let hasLocation = false;
+    
+    // Request location on init
+    function requestLocationPermission() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          hasLocation = true;
+          localStorage.setItem('lat', pos.coords.latitude);
+          localStorage.setItem('lng', pos.coords.longitude);
+        },
+        () => {}
+      );
+    }
     
     function showTab(name) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -80,28 +92,21 @@
       status = status === 'ONLINE' ? 'OFFLINE' : 'ONLINE';
       updateStatusUI();
       
-      if (status === 'ONLINE' && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-          fetch(`${API}/api/status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userId}` },
-            body: JSON.stringify({ status, lat: pos.coords.latitude, lng: pos.coords.longitude })
-          });
-        });
-      } else {
-        fetch(`${API}/api/status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userId}` },
-          body: JSON.stringify({ status })
-        });
-      }
+      const lat = localStorage.getItem('lat');
+      const lng = localStorage.getItem('lng');
+      
+      fetch(`${API}/api/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userId}` },
+        body: JSON.stringify({ status, lat: lat ? parseFloat(lat) : null, lng: lng ? parseFloat(lng) : null })
+      });
     }
     
     function updateStatusUI() {
       const btn = document.getElementById('statusBtn');
-      const txt = document.getElementById('statusText');
+      const label = document.getElementById('statusLabel');
       btn.className = 'status-btn ' + status.toLowerCase();
-      txt.textContent = status === 'ONLINE' ? 'Open to Hangout' : 'Not Available';
+      label.textContent = status === 'ONLINE' ? 'You\'re hanging' : 'Tap to hang';
     }
     
     async function loadFriends() {
@@ -113,15 +118,14 @@
             <div class="avatar ${f.status.toLowerCase()}">${f.name[0]}</div>
             <div>
               <div class="name">${f.name}</div>
-              <div class="status-text ${f.status.toLowerCase()}">${f.status === 'ONLINE' ? '● Open to Hangout' : '○ Offline'}</div>
+              <div class="status-text ${f.status.toLowerCase()}">${f.status === 'ONLINE' ? '● Hanging' : '○ Offline'}</div>
             </div>
           </div>
         `).join('');
         document.getElementById('friendsList').innerHTML = html || '<p style="color: var(--muted); text-align: center;">No friends yet</p>';
       } catch (e) {
-        // Demo data
         document.getElementById('friendsList').innerHTML = `
-          <div class="friend"><div class="avatar online">A</div><div><div class="name">Alice</div><div class="status-text online">● Open to Hangout</div></div></div>
+          <div class="friend"><div class="avatar online">A</div><div><div class="name">Alice</div><div class="status-text online">● Hanging</div></div></div>
           <div class="friend"><div class="avatar offline">B</div><div><div class="name">Bob</div><div class="status-text offline">○ Offline</div></div></div>
         `;
       }
@@ -130,35 +134,21 @@
     function initMap() {
       const mapDiv = document.getElementById('map');
       mapDiv.innerHTML = `
-        <div style="padding: 1rem; background: var(--bg2); border-radius: 8px; margin-bottom: 1rem;">
-          <h3 style="margin-bottom: 0.5rem;">📍 Location Access</h3>
-          <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem;">
-            Allow location access to share your position with friends and discover new places.
-          </p>
-          <button onclick="requestLocation()" style="padding: 0.75rem 1.5rem; background: var(--on); border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: 600;">
-            Share My Location
-          </button>
-          <p id="locStatus" style="margin-top: 0.75rem; font-size: 0.875rem;"></p>
-        </div>
-        <div id="mapCanvas" style="width: 100%; height: 400px; background: #1a1a1a; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted);">
-          Map will load after location access
+        <div style="width: 100%;">
+          <div class="loc-permission">
+            <h3 style="margin-bottom: 0.5rem; color: var(--accent);">📍 Location</h3>
+            <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem;">
+              ${hasLocation ? 'Location active ✓' : 'Share location to see friends nearby'}
+            </p>
+            ${!hasLocation ? `<button onclick="requestLocation()" style="padding: 0.75rem 1.5rem; background: var(--accent); border: none; border-radius: 8px; color: #000; cursor: pointer; font-weight: 600;">Enable Location</button>` : ''}
+            <p id="locStatus" style="margin-top: 0.75rem; font-size: 0.875rem;"></p>
+          </div>
+          <div id="mapCanvas" style="width: 100%; height: 400px; background: #1a1a1a; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted);">
+            Map view
+          </div>
         </div>
       `;
-      
-      // Try to get location automatically
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            document.getElementById('locStatus').innerHTML = 
-              `<span style="color: var(--on);">✓ Location active: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}</span>`;
-            loadFriendHomes();
-          },
-          err => {
-            document.getElementById('locStatus').innerHTML = 
-              `<span style="color: #f59e0b;">⚠ Location not shared: ${err.message}</span>`;
-          }
-        );
-      }
+      loadFriendHomes();
     }
     
     function requestLocation() {
@@ -166,66 +156,40 @@
         document.getElementById('locStatus').innerHTML = 'Geolocation not supported';
         return;
       }
-      
       navigator.geolocation.getCurrentPosition(
         pos => {
-          const { latitude, longitude } = pos.coords;
-          
-          // Send to server
-          fetch(`${API}/api/status`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userId}`
-            },
-            body: JSON.stringify({ status, lat: latitude, lng: longitude })
-          });
-          
-          document.getElementById('locStatus').innerHTML = 
-            `<span style="color: var(--on);">✓ Location shared: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}</span>`;
-          
-          loadFriendHomes();
+          hasLocation = true;
+          localStorage.setItem('lat', pos.coords.latitude);
+          localStorage.setItem('lng', pos.coords.longitude);
+          document.getElementById('locStatus').innerHTML = '<span style="color: var(--accent);">✓ Location enabled</span>';
+          initMap();
         },
         err => {
-          document.getElementById('locStatus').innerHTML = 
-            `<span style="color: #ef4444;">✗ Error: ${err.message}</span>`;
+          document.getElementById('locStatus').innerHTML = '<span style="color: #ef4444;">✗ ' + err.message + '</span>';
         }
       );
     }
     
     async function loadFriendHomes() {
       try {
-        const res = await fetch(`${API}/api/brain/homes`, {
-          headers: { 'Authorization': `Bearer ${userId}` }
-        });
+        const res = await fetch(`${API}/api/brain/homes`, { headers: { 'Authorization': `Bearer ${userId}` } });
         const homes = await res.json();
-        
         const mapCanvas = document.getElementById('mapCanvas');
         if (Object.keys(homes).length === 0) {
-          mapCanvas.innerHTML = '<p>No friend home locations saved yet</p>';
+          mapCanvas.innerHTML = '<p>No friend locations saved</p>';
           return;
         }
-        
-        let html = '<div style="padding: 1rem; width: 100%;"><h4 style="margin-bottom: 1rem;">Friend Home Locations (Encrypted Brain)</h4>';
+        let html = '<div style="padding: 1rem; width: 100%;">';
         for (const [id, home] of Object.entries(homes)) {
-          html += `
-            <div style="background: rgba(34,197,94,0.1); padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; border-left: 3px solid var(--on);">
-              <strong>Friend ${id.slice(0, 8)}...</strong><br>
-              <span style="color: var(--muted); font-size: 0.875rem;">
-                📍 ${home.lat?.toFixed(4)}, ${home.lng?.toFixed(4)}
-                ${home.address ? `<br>🏠 ${home.address}` : ''}
-              </span>
-            </div>
-          `;
+          html += `<div style="background: rgba(251,191,36,0.1); padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; border-left: 3px solid var(--accent);"><strong>Friend ${id.slice(0, 8)}...</strong><br><span style="color: var(--muted); font-size: 0.875rem;">📍 ${home.lat?.toFixed(4)}, ${home.lng?.toFixed(4)}</span></div>`;
         }
         html += '</div>';
         mapCanvas.innerHTML = html;
-      } catch (e) {
-        console.log('Brain homes not available');
-      }
+      } catch (e) {}
     }
     
     // Init
+    requestLocationPermission();
     socket = io(API);
     socket.emit('join', userId);
   </script>
