@@ -7,8 +7,7 @@
     "dev": "nodemon src/server/index.js",
     "test": "jest",
     "db:migrate": "prisma migrate deploy",
-    "db:generate": "prisma generate",
-    "postinstall": "prisma generate"
+    "db:generate": "prisma generate"
   },
   "keywords": ["events", "hangouts", "coordination"],
   "author": "",
